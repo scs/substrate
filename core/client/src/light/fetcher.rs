@@ -109,6 +109,15 @@ pub struct ChangesProof<Header: HeaderT> {
 	pub roots_proof: Vec<Vec<u8>>,
 }
 
+/// Remote block body request
+#[derive(Clone, Default, Debug, PartialEq, Eq, Hash)]
+pub struct RemoteBodyRequest<Header: HeaderT> {
+	/// Header of the requested block body
+	pub header: Header,
+	/// Number of times to retry request. None means that default RETRY_COUNT is used.
+	pub retry_count: Option<usize>,
+}
+
 /// Light client data fetcher. Implementations of this trait must check if remote data
 /// is correct (see FetchedDataChecker) and return already checked data.
 pub trait Fetcher<Block: BlockT>: Send + Sync {
@@ -120,6 +129,8 @@ pub trait Fetcher<Block: BlockT>: Send + Sync {
 	type RemoteCallResult: IntoFuture<Item=Vec<u8>, Error=ClientError>;
 	/// Remote changes result future.
 	type RemoteChangesResult: IntoFuture<Item=Vec<(NumberFor<Block>, u32)>, Error=ClientError>;
+	/// Remote block body result future.
+	type RemoteBodyResult: IntoFuture<Item = Option<Vec<Block::Extrinsic>>, Error = ClientError>;
 
 	/// Fetch remote header.
 	fn remote_header(&self, request: RemoteHeaderRequest<Block::Header>) -> Self::RemoteHeaderResult;
@@ -130,6 +141,8 @@ pub trait Fetcher<Block: BlockT>: Send + Sync {
 	/// Fetch remote changes ((block number, extrinsic index)) where given key has been changed
 	/// at a given blocks range.
 	fn remote_changes(&self, request: RemoteChangesRequest<Block::Header>) -> Self::RemoteChangesResult;
+	/// Fetch remote block body
+	fn remote_body(&self, request: RemoteBodyRequest<Block::Header>) -> Self::RemoteBodyResult;
 }
 
 /// Light client remote data checker.
@@ -396,7 +409,7 @@ pub mod tests {
 	use crate::error::Error as ClientError;
 	use test_client::{
 		self, TestClient, blockchain::HeaderBackend, AccountKeyring,
-		runtime::{self, Hash, Block, Header}
+		runtime::{self, Hash, Block, Header, Extrinsic}
 	};
 	use consensus::BlockOrigin;
 
@@ -417,6 +430,7 @@ pub mod tests {
 		type RemoteReadResult = FutureResult<Option<Vec<u8>>, ClientError>;
 		type RemoteCallResult = FutureResult<Vec<u8>, ClientError>;
 		type RemoteChangesResult = FutureResult<Vec<(NumberFor<Block>, u32)>, ClientError>;
+		type RemoteBodyResult = FutureResult<Option<Vec<Extrinsic>>, ClientError>;
 
 		fn remote_header(&self, _request: RemoteHeaderRequest<Header>) -> Self::RemoteHeaderResult {
 			err("Not implemented on test node".into())
@@ -431,6 +445,10 @@ pub mod tests {
 		}
 
 		fn remote_changes(&self, _request: RemoteChangesRequest<Header>) -> Self::RemoteChangesResult {
+			err("Not implemented on test node".into())
+		}
+
+		fn remote_body(&self, _request: RemoteBodyRequest<Header>) -> Self::RemoteBodyResult {
 			err("Not implemented on test node".into())
 		}
 	}
