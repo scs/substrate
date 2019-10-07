@@ -498,11 +498,7 @@ pub(crate) fn ancestry<B, Block: BlockT<Hash=H256>, E, RA>(
 {
 	if base == block { return Err(GrandpaError::NotDescendent) }
 
-	let tree_route_res = ::client::blockchain::tree_route(
-		|id| client.header(&id)?.ok_or(client::error::Error::UnknownBlock(format!("{:?}", id))),
-		BlockId::Hash(block),
-		BlockId::Hash(base),
-	);
+	let tree_route_res = header_metadata::tree_route(client, block, base);
 
 	let tree_route = match tree_route_res {
 		Ok(tree_route) => tree_route,
@@ -587,6 +583,7 @@ where
 			self.inner.import_notification_stream(),
 			self.inner.clone(),
 			incoming,
+			"round",
 		).map_err(Into::into));
 
 		// schedule network message cleanup when sink drops.
@@ -871,6 +868,11 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 	E: CallExecutor<Block, Blake2Hasher> + Send + Sync,
 	RA: Send + Sync,
 {
+	// NOTE: lock must be held through writing to DB to avoid race. this lock
+	//       also implicitly synchronizes the check for last finalized number
+	//       below.
+	let mut authority_set = authority_set.inner().write();
+
 	let status = client.info().chain;
 	if number <= status.finalized_number && client.hash(number)? == Some(hash) {
 		// This can happen after a forced change (triggered by the finality tracker when finality is stalled), since
@@ -884,9 +886,6 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 
 		return Ok(());
 	}
-
-	// lock must be held through writing to DB to avoid race
-	let mut authority_set = authority_set.inner().write();
 
 	// FIXME #1483: clone only when changed
 	let old_authority_set = authority_set.clone();
@@ -904,7 +903,7 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 		let status = authority_set.apply_standard_changes(
 			hash,
 			number,
-			&is_descendent_of(client, None),
+			&is_descendent_of::<_, _, Block::Hash>(client, None),
 		).map_err(|e| Error::Safety(e.to_string()))?;
 
 		// check if this is this is the first finalization of some consensus changes

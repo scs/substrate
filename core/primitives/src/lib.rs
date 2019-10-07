@@ -32,9 +32,7 @@ macro_rules! map {
 }
 
 use rstd::prelude::*;
-
 use rstd::ops::Deref;
-
 #[cfg(feature = "std")]
 use std::borrow::Cow;
 #[cfg(feature = "std")]
@@ -46,17 +44,19 @@ pub use codec::{Encode, Decode};// << for macro
 #[cfg(feature = "std")]
 pub use impl_serde::serialize as bytes;
 
+#[cfg(feature = "std")]
 pub mod hashing;
+#[cfg(feature = "std")]
 pub use hashing::{blake2_128, blake2_256, twox_64, twox_128, twox_256};
-
-
 #[cfg(feature = "std")]
 pub mod hexdisplay;
 pub mod crypto;
 
 pub mod u32_trait;
 
-
+pub mod child_storage_key;
+pub mod ed25519;
+pub mod sr25519;
 pub mod hash;
 mod hasher;
 pub mod offchain;
@@ -72,22 +72,14 @@ mod tests;
 
 pub use self::hash::{H160, H256, H512, convert_hash};
 pub use self::uint::U256;
-
 pub use changes_trie::ChangesTrieConfiguration;
+#[cfg(feature = "std")]
 pub use crypto::{DeriveJunction, Pair, Public};
 
 pub use hash_db::Hasher;
-
 // Switch back to Blake after PoC-3 is out
 // pub use self::hasher::blake::BlakeHasher;
 pub use self::hasher::blake2::Blake2Hasher;
-
-
-// brenzi: no_std issue trigger
-pub mod sr25519;
-// brenzi: no_std issue trigger
-pub mod ed25519;
-
 
 /// Context for executing a call into the runtime.
 pub enum ExecutionContext {
@@ -167,7 +159,7 @@ pub enum NativeOrEncoded<R> {
 #[cfg(feature = "std")]
 impl<R: codec::Encode> ::std::fmt::Debug for NativeOrEncoded<R> {
 	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-		self.as_encoded().as_ref().fmt(f)
+		hexdisplay::HexDisplay::from(&self.as_encoded().as_ref()).fmt(f)
 	}
 }
 
@@ -227,3 +219,8 @@ impl codec::Decode for NeverNativeValue {
 	}
 }
 
+/// Provide a simple 4 byte identifier for a type.
+pub trait TypeId {
+	/// Simple 4 byte identifier.
+	const TYPE_ID: [u8; 4];
+}

@@ -15,7 +15,7 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 #![recursion_limit="128"]
 
-use runtime_io::{with_externalities, Blake2Hasher};
+use runtime_io::with_externalities;
 use support::{
 	Parameter, traits::Get, parameter_types,
 	sr_primitives::{generic, BuildStorage, traits::{BlakeTwo256, Block as _, Verify}},
@@ -28,7 +28,7 @@ use support::{
 use inherents::{
 	ProvideInherent, InherentData, InherentIdentifier, RuntimeString, MakeFatalError
 };
-use primitives::{H256, sr25519};
+use primitives::{H256, sr25519, Blake2Hasher};
 
 mod system;
 
@@ -45,7 +45,7 @@ mod module1 {
 		type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
 		type Origin: From<Origin<Self, I>>;
 		type SomeParameter: Get<u32>;
-		type GenericType: Default + Clone + codec::Codec;
+		type GenericType: Default + Clone + codec::Codec + codec::EncodeLike;
 	}
 
 	support::decl_module! {
@@ -314,10 +314,10 @@ fn storage_instance_independance() {
 		module2::Map::<module2::Instance1>::insert(0, 0);
 		module2::Map::<module2::Instance2>::insert(0, 0);
 		module2::Map::<module2::Instance3>::insert(0, 0);
-		module2::LinkedMap::<module2::DefaultInstance>::insert(0, vec![]);
-		module2::LinkedMap::<module2::Instance1>::insert(0, vec![]);
-		module2::LinkedMap::<module2::Instance2>::insert(0, vec![]);
-		module2::LinkedMap::<module2::Instance3>::insert(0, vec![]);
+		module2::LinkedMap::<module2::DefaultInstance>::insert::<_, Vec<u8>>(0, vec![]);
+		module2::LinkedMap::<module2::Instance1>::insert::<_, Vec<u8>>(0, vec![]);
+		module2::LinkedMap::<module2::Instance2>::insert::<_, Vec<u8>>(0, vec![]);
+		module2::LinkedMap::<module2::Instance3>::insert::<_, Vec<u8>>(0, vec![]);
 		module2::DoubleMap::<module2::DefaultInstance>::insert(&0, &0, &0);
 		module2::DoubleMap::<module2::Instance1>::insert(&0, &0, &0);
 		module2::DoubleMap::<module2::Instance2>::insert(&0, &0, &0);
@@ -377,7 +377,7 @@ fn storage_with_instance_basic_operation() {
 		assert_eq!(LinkedMap::get(key), vec![]);
 		assert_eq!(LinkedMap::exists(key), false);
 		assert_eq!(LinkedMap::enumerate().count(), 1);
-		LinkedMap::insert_ref(key, &vec![1]);
+		LinkedMap::insert(key, &vec![1]);
 		assert_eq!(LinkedMap::enumerate().count(), 2);
 
 		let key1 = 1;

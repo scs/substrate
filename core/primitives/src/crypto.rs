@@ -262,6 +262,9 @@ pub trait Ss58Codec: Sized {
 		Self::from_ss58check_with_version(s)
 			.and_then(|(r, v)| match v {
 				Ss58AddressFormat::SubstrateAccountDirect => Ok(r),
+				Ss58AddressFormat::PolkadotAccountDirect => Ok(r),
+				Ss58AddressFormat::KusamaAccountDirect => Ok(r),
+				Ss58AddressFormat::DothereumAccountDirect => Ok(r),
 				v if v == *DEFAULT_VERSION.lock() => Ok(r),
 				_ => Err(PublicError::UnknownVersion),
 			})
@@ -275,6 +278,9 @@ pub trait Ss58Codec: Sized {
 		Self::from_string_with_version(s)
 			.and_then(|(r, v)| match v {
 				Ss58AddressFormat::SubstrateAccountDirect => Ok(r),
+				Ss58AddressFormat::PolkadotAccountDirect => Ok(r),
+				Ss58AddressFormat::KusamaAccountDirect => Ok(r),
+				Ss58AddressFormat::DothereumAccountDirect => Ok(r),
 				v if v == *DEFAULT_VERSION.lock() => Ok(r),
 				_ => Err(PublicError::UnknownVersion),
 			})
@@ -331,6 +337,8 @@ pub enum Ss58AddressFormat {
 	PolkadotAccountDirect,
 	/// Kusama Relay-chain, direct checksum, standard account (*25519).
 	KusamaAccountDirect,
+	/// Dothereum Para-chain, direct checksum, standard account (*25519).
+	DothereumAccountDirect,
 	/// Use a manually provided numeric value.
 	Custom(u8),
 }
@@ -342,6 +350,7 @@ impl From<Ss58AddressFormat> for u8 {
 			Ss58AddressFormat::SubstrateAccountDirect => 42,
 			Ss58AddressFormat::PolkadotAccountDirect => 0,
 			Ss58AddressFormat::KusamaAccountDirect => 2,
+			Ss58AddressFormat::DothereumAccountDirect => 20,
 			Ss58AddressFormat::Custom(n) => n,
 		}
 	}
@@ -355,6 +364,7 @@ impl TryFrom<u8> for Ss58AddressFormat {
 			42 => Ok(Ss58AddressFormat::SubstrateAccountDirect),
 			0 => Ok(Ss58AddressFormat::PolkadotAccountDirect),
 			2 => Ok(Ss58AddressFormat::KusamaAccountDirect),
+			20 => Ok(Ss58AddressFormat::DothereumAccountDirect),
 			_ => Err(()),
 		}
 	}
@@ -368,6 +378,7 @@ impl<'a> TryFrom<&'a str> for Ss58AddressFormat {
 			"substrate" => Ok(Ss58AddressFormat::SubstrateAccountDirect),
 			"polkadot" => Ok(Ss58AddressFormat::PolkadotAccountDirect),
 			"kusama" => Ok(Ss58AddressFormat::KusamaAccountDirect),
+			"dothereum" => Ok(Ss58AddressFormat::DothereumAccountDirect),
 			a => a.parse::<u8>().map(Ss58AddressFormat::Custom).map_err(|_| ()),
 		}
 	}
@@ -380,6 +391,7 @@ impl From<Ss58AddressFormat> for String {
 			Ss58AddressFormat::SubstrateAccountDirect => "substrate".into(),
 			Ss58AddressFormat::PolkadotAccountDirect => "polkadot".into(),
 			Ss58AddressFormat::KusamaAccountDirect => "kusama".into(),
+			Ss58AddressFormat::DothereumAccountDirect => "dothereum".into(),
 			Ss58AddressFormat::Custom(x) => x.to_string(),
 		}
 	}
@@ -391,7 +403,8 @@ impl From<Ss58AddressFormat> for String {
 ///
 /// Current known "versions" are:
 /// - 0 direct (payload) checksum for 32-byte *25519 Polkadot addresses.
-/// - 2 direct (payload) checksum for 32-byte *25519 Polkadot Milestone 'K' addresses.
+/// - 2 direct (payload) checksum for 32-byte *25519 Kusama addresses.
+/// - 20 direct (payload) checksum for 32-byte *25519 Dothereum addresses.
 /// - 42 direct (payload) checksum for 32-byte *25519 addresses on any Substrate-based network.
 #[cfg(feature = "std")]
 pub fn set_default_ss58_version(version: Ss58AddressFormat) {
@@ -585,9 +598,8 @@ pub trait Pair: CryptoType + Sized + Clone + Send + Sync + 'static {
 	//TODO: replace this conditionally with sgx random generator
 	#[cfg(feature = "std")]
 	fn generate() -> (Self, Self::Seed) {
-		let mut csprng: OsRng = OsRng::new().expect("OS random generator works; qed");
 		let mut seed = Self::Seed::default();
-		csprng.fill_bytes(seed.as_mut());
+		OsRng.fill_bytes(seed.as_mut());
 		(Self::from_seed(&seed), seed)
 	}
 
@@ -781,10 +793,6 @@ impl<'a> TryFrom<&'a str> for KeyTypeId {
 pub mod key_types {
 	use super::KeyTypeId;
 
-	/// Key type for generic S/R 25519 key.
-	pub const SR25519: KeyTypeId = KeyTypeId(*b"sr25");
-	/// Key type for generic Ed25519 key.
-	pub const ED25519: KeyTypeId = KeyTypeId(*b"ed25");
 	/// Key type for Babe module, build-in.
 	pub const BABE: KeyTypeId = KeyTypeId(*b"babe");
 	/// Key type for Grandpa module, build-in.
