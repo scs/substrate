@@ -15,7 +15,6 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use primitives::crypto::{KeyTypeId, CryptoType, IsWrappedBy, Public};
-#[cfg(feature = "std")]
 use primitives::crypto::Pair;
 use codec::Codec;
 
@@ -28,7 +27,6 @@ pub trait AppKey: 'static + Send + Sync + Sized + CryptoType + Clone {
 	type Public: AppPublic;
 
 	/// The corresponding key pair type in this application scheme.
-	#[cfg(feature="std")]
 	type Pair: AppPair;
 
 	/// The corresponding signature type in this application scheme.
@@ -46,9 +44,12 @@ impl<T: std::fmt::Debug + std::hash::Hash> MaybeDebugHash for T {}
 
 /// Type which implements Debug and Hash in std, not when no-std (no-std variant).
 #[cfg(not(feature = "std"))]
-pub trait MaybeDebugHash {}
+//pub trait MaybeDebugHash {}
+pub trait MaybeDebugHash: core::hash::Hash  {}
 #[cfg(not(feature = "std"))]
-impl<T> MaybeDebugHash for T {}
+//impl<T> MaybeDebugHash for T {}
+impl<T: core::hash::Hash> MaybeDebugHash for T {}
+
 
 /// A application's public key.
 pub trait AppPublic: AppKey + Public + Ord + PartialOrd + Eq + PartialEq + MaybeDebugHash + codec::Codec {
@@ -58,7 +59,6 @@ pub trait AppPublic: AppKey + Public + Ord + PartialOrd + Eq + PartialEq + Maybe
 }
 
 /// A application's key pair.
-#[cfg(feature = "std")]
 pub trait AppPair: AppKey + Pair<Public=<Self as AppKey>::Public> {
 	/// The wrapped type which is just a plain instance of `Pair`.
 	type Generic: IsWrappedBy<Self> + Pair<Public=<<Self as AppKey>::Public as AppPublic>::Generic>;
